@@ -1,0 +1,16 @@
+{
+  "name": "quantumshield-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QuantumShield AI MVP: autonomous quantum-optimized cyber defense console",
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node test/api.test.js", "dev": "node dev-server.js" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}

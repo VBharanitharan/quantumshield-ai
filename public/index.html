@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="QuantumShield AI: autonomous quantum-optimized cyber defense console">
+<title>QuantumShield AI</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: SOC console. Left rail nav, top status bar, one working view at a time. */
+:root{
+  --bg:#eef2f4;--surface:#fff;--surface2:#e4eaed;--line:#cdd7dc;--fg:#10222b;--muted:#526872;
+  --accent:#007c89;--accent-ink:#fff;--accent-soft:#d3eef0;--ok:#1f8a4c;--warn:#b86e00;--crit:#c62f3a;--crit-soft:#f8dcdf;--warn-soft:#f6e6c8;--ok-soft:#d5eedf;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0a1418;--surface:#0f1d23;--surface2:#15272f;--line:#22383f;--fg:#dcebf0;--muted:#7f9aa5;
+  --accent:#35d0d9;--accent-ink:#04181b;--accent-soft:#12363b;--ok:#4fcf86;--warn:#f0a93b;--crit:#ff5c66;--crit-soft:#3a1a20;--warn-soft:#3a2d12;--ok-soft:#12301f;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a1418;--surface:#0f1d23;--surface2:#15272f;--line:#22383f;--fg:#dcebf0;--muted:#7f9aa5;
+  --accent:#35d0d9;--accent-ink:#04181b;--accent-soft:#12363b;--ok:#4fcf86;--warn:#f0a93b;--crit:#ff5c66;--crit-soft:#3a1a20;--warn-soft:#3a2d12;--ok-soft:#12301f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body);overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:208px minmax(0,1fr);height:100%}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:20px;min-height:0;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand svg{flex:none}
+.brand b{font:700 17px/1.1 var(--f-display);letter-spacing:-.01em}
+.brand small{display:block;font:500 10px var(--f-mono);color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--surface2);color:var(--fg)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.nav .badge{font:500 11px var(--f-mono);background:var(--crit);color:#fff;border-radius:10px;padding:0 6px;min-width:20px;text-align:center}
+.rail-foot{margin-top:auto;font:11px/1.5 var(--f-mono);color:var(--muted);padding:0 6px}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+.top h1{font:700 20px/1.2 var(--f-display);margin:0;letter-spacing:-.01em;margin-right:auto}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 11px var(--f-mono);padding:3px 9px;border-radius:99px;background:var(--surface2);color:var(--muted);letter-spacing:.03em;white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.crit{background:var(--crit-soft);color:var(--crit)}.pill.acc{background:var(--accent-soft);color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--bg)}
+.seg button{background:none;border:0;padding:6px 12px;font:500 12px var(--f-body);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.content{flex:1;overflow-y:auto;padding:20px 24px 40px;min-height:0}
+.view{display:none;flex-direction:column;gap:16px;max-width:1240px}
+.view.on{display:flex}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.kpi .l{font:500 10.5px var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:700 28px/1.2 var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .s{font-size:12px;color:var(--muted)}
+.bar{height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent);transition:width .5s}
+.bar.crit>i{background:var(--crit)}.bar.warn>i{background:var(--warn)}.bar.ok>i{background:var(--ok)}
+.grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:0}
+.panel>h2{margin:0;padding:11px 14px;font:600 12px var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.panel .pb{padding:14px}
+.btn{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.dng{border-color:var(--crit);color:var(--crit);background:none}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sm{padding:4px 9px;font-size:12px}
+.attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.attacks button{text-align:left;padding:10px 12px;border-radius:7px;border:1px solid var(--line);background:var(--bg)}
+.attacks button:hover{border-color:var(--crit)}
+.attacks b{display:block;font-size:13px}.attacks span{font-size:11.5px;color:var(--muted)}
+.assets{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.asset{border:1px solid var(--line);border-radius:7px;padding:10px;background:var(--bg);min-width:0}
+.asset.hot{border-color:var(--crit);background:var(--crit-soft)}
+.asset.iso{border-style:dashed;border-color:var(--warn)}
+.asset b{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asset small{font:11px var(--f-mono);color:var(--muted)}
+.asset .tr{display:flex;justify-content:space-between;font:500 11px var(--f-mono);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font:500 10.5px var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.m,.mono{font-family:var(--f-mono);font-size:12px}
+tr.an td{background:var(--crit-soft)}
+.scroll{overflow-x:auto}
+.log{display:flex;flex-direction:column;max-height:300px;overflow-y:auto;font:12px/1.5 var(--f-mono)}
+.log div{padding:5px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px}
+.log time{color:var(--muted);flex:none}
+.log .crit{color:var(--crit)}.log .ok{color:var(--ok)}.log .acc{color:var(--accent)}.log .warn{color:var(--warn)}
+.inc{border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.inc.crit{border-color:var(--crit)}
+.inc-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 14px}
+.inc-h h3{margin:0;font:700 16px var(--f-display);margin-right:auto}
+.inc-b{padding:0 14px 14px;display:flex;flex-direction:column;gap:12px}
+.steps{display:flex;flex-wrap:wrap;gap:6px}
+.step{font:500 11px var(--f-mono);padding:3px 8px;border-radius:4px;background:var(--surface2);color:var(--muted)}
+.step.done{background:var(--ok-soft);color:var(--ok)}.step.now{background:var(--accent-soft);color:var(--accent)}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.act{font:12px var(--f-mono);padding:3px 8px;border-radius:4px;border:1px solid var(--line)}
+.act.ex{border-color:var(--ok);color:var(--ok)}.act.pend{border-color:var(--warn);color:var(--warn)}
+.empty{padding:28px 14px;text-align:center;color:var(--muted)}
+.hist{display:flex;flex-direction:column;gap:5px}
+.hr{display:grid;grid-template-columns:76px minmax(0,1fr) 64px;gap:8px;align-items:center;font:11.5px var(--f-mono)}
+.hr .b{height:14px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.hr .b i{display:block;height:100%;background:var(--accent);opacity:.55}
+.hr.best .b i{opacity:1;background:var(--ok)}
+.hr.opt{color:var(--ok)}
+.form{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px}
+.row small{display:block;color:var(--muted);font-size:12px}
+input[type=range]{accent-color:var(--accent);width:180px;max-width:100%}
+.chk{display:flex;gap:10px;align-items:flex-start}
+.chk input{margin-top:4px;accent-color:var(--accent)}
+select{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+.note{font-size:12.5px;color:var(--muted)}
+.cmp td:first-child{font-weight:500}
+.good{color:var(--ok)}.bad{color:var(--crit)}
+.arch{display:flex;flex-direction:column;gap:10px}
+.node{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--surface);display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px}
+.node .n{font:700 13px var(--f-mono);color:var(--accent);background:var(--accent-soft);border-radius:6px;display:grid;place-items:center;height:34px}
+.node b{display:block}.node span{font-size:12.5px;color:var(--muted)}
+.node.loop{border-style:dashed}
+.sec-note{display:flex;gap:8px;align-items:center}
+
+[hidden]{display:none!important}
+.banner{background:var(--crit);color:#fff;padding:9px 24px;font:500 13px var(--f-body);display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.banner b{font-family:var(--f-mono);letter-spacing:.06em}
+.toasts{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;z-index:30;max-width:min(360px,calc(100vw - 32px))}
+.toast{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:9px 12px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.toast.crit{border-left-color:var(--crit)}.toast.warn{border-left-color:var(--warn)}.toast.ok{border-left-color:var(--ok)}
+.login{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px;overflow-y:auto}
+.login .card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:26px;display:flex;flex-direction:column;gap:14px}
+.login h1{font:700 26px/1.15 var(--f-display);margin:0;letter-spacing:-.02em}
+.login label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.06em}
+.login input{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font:14px var(--f-body)}
+.who{font:12px var(--f-mono);color:var(--muted);display:flex;align-items:center;gap:8px}
+#topo{width:100%;height:auto;display:block}
+#topo text{font:500 10.5px var(--f-body);fill:var(--fg);text-anchor:middle}
+#topo .sub{font:10px var(--f-mono);fill:var(--muted)}
+#topo .edge{stroke:var(--line);stroke-width:1.5}
+#topo .zone{fill:var(--surface2);opacity:.45}
+#topo .zl{font:500 9.5px var(--f-mono);fill:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+#topo .nd{fill:var(--surface);stroke:var(--ok);stroke-width:2.2;transition:fill .4s,stroke .4s}
+#topo .nd.warn{stroke:var(--warn)}#topo .nd.crit{stroke:var(--crit);fill:var(--crit-soft)}
+#topo .nd.iso{stroke-dasharray:4 3;stroke:var(--warn)}
+#topo .atk{stroke:var(--crit);stroke-width:2.5;stroke-dasharray:7 6;animation:dash .5s linear infinite;display:none;fill:none}
+#topo .atk.on{display:block}
+#topo .ring{fill:none;stroke:var(--crit);stroke-width:1.5;opacity:0}
+#topo .ring.on{opacity:.8;animation:pulse 1.2s ease-out infinite}
+@keyframes dash{to{stroke-dashoffset:-13}}
+@keyframes pulse{from{r:20;opacity:.8}to{r:34;opacity:0}}
+@media (prefers-reduced-motion:reduce){#topo .atk,#topo .ring.on{animation:none}}
+.why{border-left:3px solid var(--warn);padding:2px 10px;font-size:12.5px}.why.em{border-color:var(--crit)}
+.tlist{display:flex;flex-direction:column;gap:2px;font:12px var(--f-mono);color:var(--muted)}
+.tlist time{color:var(--fg);margin-right:8px}
+.integ{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.integ:last-child{border:0}
+@media (max-width:860px){.banner{padding-inline:16px}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .rail{flex-direction:row;align-items:center;border-right:0;border-bottom:1px solid var(--line);padding:8px 12px;overflow-x:auto;gap:10px}
+  .brand small,.rail-foot{display:none}
+  .nav{flex-direction:row}.nav button{white-space:nowrap;padding:7px 10px}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .top,.content{padding-inline:16px}
+}
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+body{margin:0}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5 13 12 15 7-2 12-7.500 12-15V7z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><circle cx="16" cy="15" r="3" fill="var(--accent)"/><ellipse cx="16" cy="15" rx="8" ry="3.200" fill="none" stroke="var(--accent)" stroke-width="1.200"/><ellipse cx="16" cy="15" rx="8" ry="3.200" fill="none" stroke="var(--accent)" stroke-width="1.200" transform="rotate(60 16 15)"/></svg>
+      <div><b>QuantumShield</b><small>Cyber defense</small></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="rail-foot">Metadata only.<br>No payloads or files are read.</div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <h1 id="title">Overview</h1>
+      <span class="pill" id="posture"></span>
+      <span class="pill acc" title="Optimizer backend"><i></i>QAOA · 6 qubits · simulator</span>
+      <div class="seg" role="group" aria-label="Autonomy mode" id="mode"></div>
+    </header>
+    <div class="banner" id="banner" hidden></div>
+    <div class="content" id="content">
+      <section class="view" id="v-overview"></section>
+      <section class="view" id="v-incidents"></section>
+      <section class="view" id="v-lab"></section>
+      <section class="view" id="v-policy"></section>
+      <section class="view" id="v-integ"></section>
+      <section class="view" id="v-memory"></section>
+      <section class="view" id="v-reports"></section>
+      <section class="view" id="v-arch"></section>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="login" id="login">
+  <form class="card" id="loginf">
+    <div class="brand"><svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5 13 12 15 7-2 12-7.500 12-15V7z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><circle cx="16" cy="15" r="3" fill="var(--accent)"/></svg><div><b>QuantumShield</b><small>Autonomous cyber defense</small></div></div>
+    <h1>Security console</h1>
+    <div class="seg" role="group" aria-label="Sign in or create account" style="align-self:flex-start"><button type="button" id="tab-in" aria-pressed="true">Sign in</button><button type="button" id="tab-up" aria-pressed="false">Create account</button></div>
+    <label for="nm" id="nmrow" hidden>Your name<input id="nm" type="text" autocomplete="name" maxlength="60"></label>
+    <label for="em">Work email<input id="em" type="email" required autocomplete="email"></label>
+    <label for="pw">Password<input id="pw" type="password" required minlength="8" autocomplete="current-password"></label>
+    <div id="aerr" role="alert" style="color:var(--crit);font-size:13px;min-height:1.2em"></div>
+    <button class="btn pri" type="submit" id="asub">Sign in</button>
+    <button class="btn" type="button" id="demo">Try demo mode (nothing is saved)</button>
+    <p class="note" style="margin:0">Your policy, threat memory, incident reports and audit trail are saved to your account. The system reads connection metadata only, never payloads or files. Traffic and attacks are simulated.</p>
+  </form>
+</div>
+
+<script>
+/* ===== Engine ===== */
+const ASSETS=[
+ {id:'web-01',name:'Web Gateway',zone:'DMZ',ip:'10.0.1.10',crit:3},
+ {id:'api-01',name:'API Server',zone:'App',ip:'10.0.2.11',crit:4},
+ {id:'auth-01',name:'Identity Provider',zone:'Core',ip:'10.0.4.5',crit:5},
+ {id:'db-01',name:'Customer DB',zone:'Data',ip:'10.0.3.20',crit:5},
+ {id:'file-01',name:'File Server',zone:'Data',ip:'10.0.3.31',crit:4},
+ {id:'bkp-01',name:'Backup Vault',zone:'Data',ip:'10.0.3.90',crit:4},
+ {id:'hr-pc',name:'HR Workstation',zone:'Endpoint',ip:'10.0.5.42',crit:2},
+ {id:'dev-pc',name:'Dev Workstation',zone:'Endpoint',ip:'10.0.5.77',crit:2}];
+const A={}; ASSETS.forEach(a=>{a.trust=94+Math.random()*4;a.base=a.trust;a.iso=false;a.z=0;a.s=0;A[a.id]=a});
+const FEAT=['pps','ports','kb','fails'];
+const FEATN={pps:'Packet rate',ports:'Port spread',kb:'Outbound volume',fails:'Failed logins'};
+const MU={pps:120,ports:3,kb:40,fails:.3}, SD={pps:40,ports:1.5,kb:20,fails:.6};
+const TYPES={
+ ddos:{name:'DDoS flood',desc:'Traffic spike on the public gateway',src:'185.220.101.34',targets:['web-01','api-01','auth-01'],z:{pps:[28,45]}},
+ scan:{name:'Port scan',desc:'Recon sweep across internal ports',src:'45.155.205.9',targets:['web-01','api-01','db-01'],z:{ports:[7,11]}},
+ exfil:{name:'Data exfiltration',desc:'Large outbound transfer from data tier',src:'10.0.5.77',targets:['file-01','db-01','bkp-01'],z:{kb:[14,22]}},
+ brute:{name:'Credential stuffing',desc:'Mass failed logins on identity',src:'91.240.118.50',targets:['auth-01','api-01','hr-pc'],z:{fails:[9,16]}},
+ ransom:{name:'Ransomware spread',desc:'Lateral movement and mass file activity',src:'10.0.5.42',targets:['hr-pc','file-01','db-01','bkp-01'],z:{ports:[5,7],fails:[5,7],kb:[7,10],pps:[4,6]}}};
+const ACTIONS=[
+ {id:'block',name:'Block source IP',cost:1,eff:{ddos:.8,scan:.9,exfil:.7,brute:.9,ransom:.5}},
+ {id:'rate',name:'Rate-limit traffic',cost:1,eff:{ddos:.7,scan:.4,exfil:.3,brute:.5,ransom:.2}},
+ {id:'isolate',name:'Isolate host',cost:5,eff:{ddos:.2,scan:.3,exfil:.9,brute:.5,ransom:.95}},
+ {id:'mfa',name:'Revoke sessions + MFA',cost:3,eff:{ddos:0,scan:.1,exfil:.5,brute:.95,ransom:.6}},
+ {id:'snap',name:'Snapshot + lock backups',cost:2,eff:{ddos:0,scan:0,exfil:.1,brute:.1,ransom:.8}},
+ {id:'honey',name:'Redirect to honeypot',cost:2,eff:{ddos:.3,scan:.7,exfil:.4,brute:.4,ransom:.4}}];
+const NEED={block:'fw',rate:'fw',honey:'fw',isolate:'edr',mfa:'idp',snap:'bk'};
+const S={tick:0,events:[],pps:[],attacks:[],incidents:[],log:[],uid:1,
+ policy:{mode:'auto',threshold:60,budget:8,emergency:1,emThr:85,allowed:{block:1,rate:1,isolate:0,mfa:1,snap:1,honey:1}},
+ integ:{fw:1,edr:1,idp:1,bk:1},emergency:false,toasts:[],
+ stats:{auto:0,mttr:[],blocked:0},mem:{}};
+S.user=null;S.auditQ=[];S.hist=[];
+function loadLocalMem(){try{const m=JSON.parse(localStorage.getItem('qs-mem')||'null');if(m)S.mem=m}catch(e){}}
+const saveMem=()=>{if(S.user)return;try{localStorage.setItem('qs-mem',JSON.stringify(S.mem))}catch(e){}};
+/* --- server API (only used when signed in) --- */
+async function api(path,method,body){
+  const r=await fetch(path,{method:method||'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok)throw Object.assign(new Error((j&&j.error)||'Request failed'),{status:r.status});
+  return j;
+}
+let polT;function savePolicy(){if(!S.user)return;clearTimeout(polT);polT=setTimeout(()=>api('/api/policy','PUT',S.policy).catch(()=>{}),500)}
+setInterval(()=>{if(S.user&&S.auditQ.length){const items=S.auditQ.splice(0,50);api('/api/audit','POST',{items}).catch(()=>{})}},4000);
+const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)];
+const clock=()=>{const d=new Date();return d.toTimeString().slice(0,8)};
+function tl(inc,text){(inc.tl=inc.tl||[]).push({t:clock(),text})}
+function toast(text,kind){S.toasts.push({text,kind:kind||'',id:Math.random()})}
+function log(text,kind){if(S.user)S.auditQ.push({kind:kind||'',text});S.log.unshift({t:clock(),text,kind:kind||''});if(S.log.length>60)S.log.pop()}
+
+/* --- detection: z-scores against each asset's baseline, learned signatures lower the bar --- */
+function zscores(f){const z={};FEAT.forEach(k=>z[k]=(f[k]-MU[k])/SD[k]);return z}
+function classify(z){
+  const hi=FEAT.filter(k=>z[k]>4);
+  if(hi.length>=3)return 'ransom';
+  const top=FEAT.reduce((a,b)=>z[a]>z[b]?a:b);
+  return {pps:'ddos',ports:'scan',kb:'exfil',fails:'brute'}[top];
+}
+function score(z){return Math.sqrt(FEAT.reduce((s,k)=>s+Math.max(0,z[k])**2,0))}
+function riskOf(s,asset){return Math.min(99,Math.round(100*(1-Math.exp(-s/9))*(.7+.06*asset.crit)))}
+function genEvent(src,dst,boost){
+  const f={pps:Math.max(5,MU.pps+SD.pps*rnd(-1,1.2)),ports:Math.max(1,MU.ports+SD.ports*rnd(-1,1.5)),kb:Math.max(1,MU.kb+SD.kb*rnd(-1,1.3)),fails:Math.max(0,MU.fails+SD.fails*rnd(-.5,1.5))};
+  if(boost)for(const k in boost){const [lo,hi]=boost[k];f[k]=MU[k]+SD[k]*rnd(lo,hi)}
+  return {t:clock(),src,dst,port:pick([443,443,80,22,3306,8080,53,445]),f};
+}
+function normalTraffic(){
+  const n=3+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    const d=pick(ASSETS);const s=pick(['10.0.5.'+Math.floor(rnd(10,90)),'172.16.4.'+Math.floor(rnd(2,200)),'203.0.113.'+Math.floor(rnd(2,250))]);
+    ingest(genEvent(s,d.id,null),null);
+  }
+}
+function ingest(ev,atk){
+  const a=A[ev.dst],z=zscores(ev.f),s=score(z);ev.s=s;ev.z=z;ev.type=atk?atk.type:classify(z);
+  const t=ev.type, learned=S.mem[t];
+  const thr=learned?4:6;
+  ev.an=s>thr;
+  a.s=a.s*.6+s*.4;
+  if(ev.an){a.trust=Math.max(8,a.trust-Math.min(s,30)*.18);a.z=Math.min(99,Math.max(a.z,riskOf(s,a)));
+    const owner=atk||S.attacks.find(x=>x.active&&x.type===t&&!x.found);
+    detect(ev,a,s,t,learned)}
+  S.events.unshift(ev);if(S.events.length>40)S.events.pop();
+}
+function detect(ev,a,s,t,learned){
+  let inc=S.incidents.find(i=>i.type===t&&i.state!=='contained');
+  const risk=riskOf(s,a);
+  if(!inc){
+    inc={id:S.uid++,type:t,src:ev.src,assets:[],risk,state:'detected',t0:Date.now(),tick0:S.tick,plan:null,done:[],pend:[],learned:!!learned,opt:null,tl:[],why:[],em:false,nA:0,rP:0};
+    tl(inc,'Anomaly detected on '+a.name+' (score '+s.toFixed(1)+')');
+    S.incidents.unshift(inc);
+    log(`Detected ${TYPES[t].name} on ${a.name} (risk ${risk})${learned?' · matched learned signature':''}`,'crit');
+    toast(TYPES[t].name+' detected on '+a.name,'crit');
+    const delay=learned?600:1400;
+    setTimeout(()=>respond(inc),delay);
+  }
+  if(!inc.assets.includes(a.id))inc.assets.push(a.id);
+  inc.risk=Math.max(inc.risk,risk);
+  S.attacks.forEach(k=>{if(k.type===t&&k.active)k.inc=inc});
+}
+
+/* --- QAOA statevector simulation --- */
+const NQ=6,NS=1<<NQ;
+function objective(z,ctx){
+  let resid=1,cost=0,sel=[];
+  for(let i=0;i<NQ;i++)if(z>>i&1){resid*=1-ACTIONS[i].eff[ctx.type];cost+=ACTIONS[i].cost;sel.push(ACTIONS[i].id)}
+  let c=ctx.risk*resid+2.2*cost*(ctx.crit/3);
+  if(cost>ctx.budget)c+=14*(cost-ctx.budget);
+  if((z>>2&1)&&(z>>5&1))c+=15;
+  for(let i=0;i<NQ;i++)if((z>>i&1)&&(ctx.off||[]).includes(ACTIONS[i].id))c+=1000;   // connector offline: action unavailable          // isolating a host and redirecting it conflict
+  return c;
+}
+function qaoa(ctx,warm){
+  const C=new Float64Array(NS);let mn=1e9,mx=-1e9,bz=0;
+  for(let z=0;z<NS;z++){C[z]=objective(z,ctx);if(C[z]<mn){mn=C[z];bz=z}if(C[z]>mx)mx=C[z]}
+  const Cn=C.map(c=>(c-mn)/(mx-mn||1));
+  const run=(g,b)=>{
+    let re=new Float64Array(NS).fill(1/Math.sqrt(NS)),im=new Float64Array(NS);
+    for(let l=0;l<g.length;l++){
+      for(let z=0;z<NS;z++){const p=-g[l]*Cn[z],c=Math.cos(p),s=Math.sin(p),r=re[z];re[z]=r*c-im[z]*s;im[z]=r*s+im[z]*c}
+      const c=Math.cos(b[l]),s=Math.sin(b[l]);
+      for(let q=0;q<NQ;q++){const m=1<<q;
+        for(let z=0;z<NS;z++){if(z&m)continue;const w=z|m,ar=re[z],ai=im[z],br=re[w],bi=im[w];
+          re[z]=c*ar+s*bi;im[z]=c*ai-s*br;re[w]=c*br+s*ai;im[w]=c*bi-s*ar}}
+    }
+    let e=0;const pr=new Float64Array(NS);for(let z=0;z<NS;z++){pr[z]=re[z]*re[z]+im[z]*im[z];e+=pr[z]*C[z]}
+    return {e,pr};
+  };
+  let g=[rnd(0,4),rnd(0,4)],b=[rnd(0,1.5),rnd(0,1.5)],best=run(g,b).e,evals=1,hist=[best];
+  if(warm&&warm.g){g=warm.g.slice();b=warm.b.slice();best=run(g,b).e}
+  const iters=warm?220:520;
+  for(let i=0;i<iters;i++){
+    const sc=2.2*(1-i/iters)+.12,g2=g.map(x=>x+rnd(-sc,sc)),b2=b.map(x=>x+rnd(-sc/2,sc/2)),e=run(g2,b2).e;evals++;
+    if(e<best){best=e;g=g2;b=b2;hist.push(e)}
+  }
+  const {pr}=run(g,b);
+  const shots=1024,counts={};let cum=[],acc=0;pr.forEach(p=>{acc+=p;cum.push(acc)});
+  for(let i=0;i<shots;i++){const r=Math.random()*acc;let k=cum.findIndex(x=>x>=r);if(k<0)k=NS-1;counts[k]=(counts[k]||0)+1}
+  const top=Object.entries(counts).map(([z,n])=>({z:+z,n,c:C[+z]})).sort((a,b)=>b.n-a.n);
+  const pick1=top.reduce((a,b)=>a.c<b.c?a:b);   // score every measured bitstring classically, keep the best
+  // greedy baseline: add the action with best marginal gain until none helps
+  let gz=0,gc=C[0],imp=true;while(imp){imp=false;let bb=gz,bcst=gc;for(let i=0;i<NQ;i++){if(gz>>i&1)continue;const zz=gz|1<<i;if(C[zz]<bcst){bcst=C[zz];bb=zz}}if(bb!==gz){gz=bb;gc=bcst;imp=true}}
+  return {C,g,b,evals,hist,top:top.slice(0,8),choice:pick1.z,cost:pick1.c,opt:bz,optCost:mn,greedy:gz,greedyCost:gc,none:C[0],worst:mx,shots,prOpt:pr[bz],ratio:(mx-pick1.c)/(mx-mn||1)};
+}
+const bits=z=>ACTIONS.filter((a,i)=>z>>i&1);
+const bstr=z=>z.toString(2).padStart(NQ,'0');
+function ctxFor(inc,budget){const a=A[inc.assets[0]]||ASSETS[0];return {type:inc.type,risk:inc.risk,crit:Math.max(...inc.assets.map(x=>A[x].crit),1),budget:budget==null?S.policy.budget:budget,off:ACTIONS.filter(a=>!S.integ[NEED[a.id]]).map(a=>a.id)}}
+
+/* --- response pipeline: optimize -> decide -> execute; emergencies bypass the human gate --- */
+const nm=id=>ACTIONS.find(a=>a.id===id).name;
+function emergencyReasons(inc){
+  const P=S.policy,r=[];
+  if(!P.emergency||P.mode==='monitor')return r;
+  if(inc.risk>=P.emThr)r.push(`risk ${inc.risk} reached the emergency level of ${P.emThr}`);
+  if(inc.assets.length>=3)r.push(`attack has spread to ${inc.assets.length} assets`);
+  if(['ransom','exfil'].includes(inc.type)&&inc.risk>=70&&inc.assets.some(x=>A[x].crit>=5))r.push('a critical data or identity asset is under attack');
+  return r;
+}
+async function plan(inc,warm){
+  const em=emergencyReasons(inc),ctx=ctxFor(inc);
+  if(em.length)ctx.budget+=6;                       // emergencies may spend more disruption budget
+  const t0=performance.now();let r=null;inc.where='in-browser simulator';
+  if(S.user){try{const j=await api('/api/optimize','POST',Object.assign({},ctx,{warm}));r=j.result;inc.where='server'}catch(e){}}
+  if(!r)r=qaoa(ctx,warm);
+  inc.opt=r;inc.optMs=Math.round(performance.now()-t0);inc.nA=inc.assets.length;inc.rP=inc.risk;
+  return {r,em,ids:bits(r.choice).map(a=>a.id)};
+}
+async function respond(inc){
+  if(inc.state!=='detected')return;
+  inc.state='optimizing';
+  const learned=S.mem[inc.type],{r,em,ids}=await plan(inc,learned&&learned.warm);
+  inc.plan=ids;inc.warm=!!(learned&&learned.warm);
+  const off=ACTIONS.filter(a=>!S.integ[NEED[a.id]]).map(a=>a.name);
+  if(off.length){inc.why.push('Connector offline, plan routed around: '+off.join(', '));}
+  tl(inc,'Quantum optimizer chose: '+(ids.map(nm).join(' + ')||'no action'));
+  log(`Quantum optimizer chose ${ids.length?ids.map(nm).join(' + '):'no action'} for incident #${inc.id}`,'acc');
+  const P=S.policy;
+  if(P.mode==='monitor'){inc.state='alert';inc.pend=ids.slice();inc.why.push('Monitor mode: no actions taken');log(`Monitor mode: incident #${inc.id} left for review`,'warn');return}
+  if(em.length){
+    inc.em=true;S.emergency=true;inc.why.push('EMERGENCY OVERRIDE: '+em.join('; ')+'. Human approval skipped.');
+    toast('Emergency: '+TYPES[inc.type].name+' is spreading. Acting automatically.','crit');
+    log(`EMERGENCY auto-decision for #${inc.id}: ${em.join('; ')}`,'crit');tl(inc,'Emergency override: '+em.join('; '));
+    execute(inc,ids,'emergency');return;
+  }
+  if(P.mode==='auto'&&inc.risk>=P.threshold){
+    const ok=ids.filter(id=>P.allowed[id]);
+    inc.why.push(`Risk ${inc.risk} is at or above the auto threshold ${P.threshold}. Policy-approved actions run now.`);
+    execute(inc,ok,'auto');inc.pend=ids.filter(id=>!P.allowed[id]);
+    if(inc.pend.length&&inc.state!=='containing'){inc.state='partial';inc.why.push(inc.pend.map(nm).join(', ')+' not pre-approved; waiting for a person');toast('Incident #'+inc.id+' needs your approval','warn')}
+  }else{
+    inc.state='pending';inc.pend=ids.slice();
+    inc.why.push(P.mode==='auto'?`Risk ${inc.risk} is below the auto threshold ${P.threshold}`:'Ask-first mode');
+    toast('Incident #'+inc.id+' waiting for approval','warn');log(`#${inc.id} waiting for approval`,'warn');
+  }
+}
+function execute(inc,ids,how){
+  const auto=how==='auto'||how==='emergency';
+  ids.forEach(id=>{if(inc.done.includes(id)||!S.integ[NEED[id]])return;inc.done.push(id);
+    const act=ACTIONS.find(a=>a.id===id);
+    log(`${how==='emergency'?'Emergency auto-executed':auto?'Auto-executed':'Approved'}: ${act.name} (incident #${inc.id})`,'ok');
+    tl(inc,(auto?'Auto: ':'Approved: ')+act.name);
+    if(auto)S.stats.auto++;if(how==='emergency')S.stats.emerg=(S.stats.emerg||0)+1;
+    if(id==='isolate')inc.assets.forEach(x=>{A[x].iso=true});
+    if(id==='block')S.stats.blocked++});
+  inc.pend=inc.pend.filter(id=>!inc.done.includes(id));
+  const resid=inc.done.reduce((r,id)=>r*(1-ACTIONS.find(a=>a.id===id).eff[inc.type]),1);
+  inc.resid=resid;
+  S.attacks.forEach(k=>{if(k.type===inc.type&&k.active)k.resid=resid});
+  if(resid<=.3&&inc.state!=='contained'){inc.state='containing';inc.cTick=S.tick+5}
+  else if(inc.state!=='containing')inc.state=inc.pend.length?'partial':'partial';
+}
+async function replan(inc){if(inc.busy)return;inc.busy=true;try{await replan0(inc)}finally{inc.busy=false}}
+async function replan0(inc){
+  // keep deciding while an attack is still moving: new assets or rising risk trigger a fresh quantum optimization
+  const {r,em,ids}=await plan(inc,S.mem[inc.type]&&S.mem[inc.type].warm);
+  const fresh=ids.filter(id=>!inc.done.includes(id));
+  log(`Re-planned #${inc.id}: ${inc.assets.length} assets, risk ${inc.risk}`,'acc');tl(inc,`Re-planned after spread (${inc.assets.length} assets, risk ${inc.risk})`);
+  if(!fresh.length)return;
+  inc.plan=Array.from(new Set(inc.plan.concat(fresh)));
+  if(em.length&&S.policy.mode!=='monitor'){
+    if(!inc.em){inc.em=true;S.emergency=true;inc.why.push('EMERGENCY OVERRIDE during re-plan: '+em.join('; '));toast('Emergency escalation on #'+inc.id,'crit')}
+    execute(inc,fresh,'emergency');
+  }else{inc.pend=Array.from(new Set(inc.pend.concat(fresh)));inc.state='partial'}
+}
+function contain(inc){
+  inc.state='contained';const dt=((Date.now()-inc.t0)/1000);inc.ttr=dt;S.stats.mttr.push(dt);
+  S.attacks.forEach(k=>{if(k.type===inc.type)k.active=false});
+  const m=S.mem[inc.type]||{count:0,first:clock()};
+  m.count++;m.last=clock();m.src=inc.src;m.best=inc.done.slice();m.ttr=Math.round(dt);m.warm=inc.opt?{g:inc.opt.g,b:inc.opt.b}:null;
+  S.mem[inc.type]=m;saveMem();
+  if(S.user){
+    api('/api/incidents','POST',{attack:inc.type,src:inc.src,risk:inc.risk,state:'contained',emergency:inc.em,assets:inc.assets,actions:inc.done,timeline:inc.tl,ttr:dt})
+      .then(j=>S.hist.unshift({id:j.id,type:inc.type,assets:inc.assets.slice(),done:inc.done.slice(),tl:inc.tl.slice(),risk:inc.risk,ttr:dt,em:inc.em})).catch(()=>{});
+    api('/api/memory','PUT',{attack:inc.type,data:m}).catch(()=>{});
+  }
+  tl(inc,'Contained in '+dt.toFixed(1)+'s; signature stored');
+  log(`Contained ${TYPES[inc.type].name} in ${dt.toFixed(1)}s. Signature stored in threat memory.`,'ok');
+  toast(TYPES[inc.type].name+' contained in '+dt.toFixed(1)+'s','ok');
+  S.emergency=S.incidents.some(i=>i.em&&i.state!=='contained');
+}
+function launchMulti(){['ddos','brute','ransom'].forEach(launch);toast('Coordinated multi-vector attack in progress','crit')}
+function launch(type){
+  const T=TYPES[type];if(S.attacks.some(k=>k.active&&k.type===type))return;
+  S.attacks.push({type,active:true,targets:[T.targets[0]],spread:1,resid:1,start:S.tick,found:false,inc:null});
+  log(`Simulated attack started: ${T.name}`,'warn');
+}
+function step(){
+  S.tick++;
+  normalTraffic();
+  S.attacks.forEach(k=>{
+    if(!k.active)return;const T=TYPES[k.type];
+    if(S.tick-k.start>0&&(S.tick-k.start)%3===0&&k.targets.length<T.targets.length&&k.resid>.6)k.targets.push(T.targets[k.targets.length]);
+    k.targets.forEach(t=>{
+      if(A[t].iso&&S.incidents.some(i=>i.type===k.type&&i.done.includes('isolate')))return;
+      const boost={};for(const f in T.z){const [lo,hi]=T.z[f];boost[f]=[lo*k.resid,hi*k.resid]}
+      ingest(genEvent(T.src,t,boost),k);
+    });
+  });
+  const tot=S.events.slice(0,8).reduce((s,e)=>s+e.f.pps,0);S.pps.push(Math.round(tot/8));if(S.pps.length>60)S.pps.shift();
+  ASSETS.forEach(a=>{if(a.trust<a.base)a.trust=Math.min(a.base,a.trust+(S.attacks.some(k=>k.active)?.1:.5));a.z=Math.max(0,a.z-3)});
+  S.incidents.forEach(i=>{
+    if(i.state==='containing'&&S.tick>=i.cTick)contain(i);
+    else if(['partial','containing','pending'].includes(i.state)&&S.tick%3===0&&(i.assets.length>i.nA||i.risk>=i.rP+8)&&S.policy.mode!=='monitor')replan(i);
+    if(['partial','pending'].includes(i.state)&&i.pend.length&&S.policy.emergency&&S.policy.mode!=='monitor'&&S.attacks.some(k=>k.active&&k.type===i.type)){
+      if(i.waitTick==null)i.waitTick=S.tick;
+      else if(S.tick-i.waitTick>=10){i.waitTick=null;i.em=true;S.emergency=true;
+        i.why.push('EMERGENCY OVERRIDE: nobody approved within 10 seconds and the attack is still active.');
+        toast('No approval in 10s. Acting on '+TYPES[i.type].name+' automatically.','crit');log(`Approval timeout on #${i.id}: escalating automatically`,'crit');tl(i,'Approval timeout: escalated automatically');
+        execute(i,i.pend.slice(),'emergency')}
+    }
+  });
+}
+const posture=()=>{const act=S.incidents.filter(i=>i.state!=='contained');return act.length?Math.max(...act.map(i=>i.risk)):Math.round(Math.max(...ASSETS.map(a=>100-a.trust))*.6)};
+/* ===== UI ===== */
+const VIEWS=[['overview','Overview'],['incidents','Incidents'],['lab','Quantum Lab'],['policy','Policy'],['integ','Integrations'],['memory','Threat Memory'],['reports','Reports'],['arch','Architecture']];
+let cur='overview';try{const h=location.hash.slice(1);if(VIEWS.some(v=>v[0]===h))cur=h}catch(e){}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sevc=r=>r>=70?'crit':r>=40?'warn':'ok';
+const STATE={detected:'Detected',optimizing:'Optimizing',pending:'Needs approval',partial:'Partly handled',alert:'Alert only',containing:'Containing',contained:'Contained'};
+const STEPS=['Detect','Score','Optimize','Policy gate','Execute','Contain'];
+function stepIdx(i){return {detected:1,optimizing:2,pending:3,alert:3,partial:4,containing:5,contained:6}[i.state]}
+function incCard(i){
+  const idx=stepIdx(i),cls=i.state==='contained'?'':(i.em||i.risk>=70)?'crit':'';
+  const acts=i.plan?ACTIONS.filter(a=>i.plan.includes(a.id)).map(a=>`<span class="act ${i.done.includes(a.id)?'ex':'pend'}">${i.done.includes(a.id)?'✓ ':'… '}${a.name}</span>`).join(''):'';
+  const btn=i.pend.length&&i.state!=='contained'?`<button class="btn pri sm" data-act="approve" data-id="${i.id}">Approve ${i.pend.length} action${i.pend.length>1?'s':''}</button>`:'';
+  return `<article class="inc ${cls}"><div class="inc-h"><h3>#${i.id} ${TYPES[i.type].name}</h3>
+   <span class="pill ${sevc(i.risk)}">risk ${i.risk}</span><span class="pill ${i.state==='contained'?'ok':'acc'}">${STATE[i.state]}</span>${i.em?'<span class="pill crit">emergency auto-response</span>':''}${i.learned?'<span class="pill ok">known signature</span>':''}</div>
+   <div class="inc-b"><div class="note">${TYPES[i.type].desc}. Source <span class="mono">${esc(i.src)}</span>. Affected: ${i.assets.map(x=>A[x].name).join(', ')}.</div>
+   <div class="steps">${STEPS.map((s,k)=>`<span class="step ${k<idx?'done':k===idx?'now':''}">${s}</span>`).join('')}</div>
+   ${i.why.map(w=>`<div class="why ${w.startsWith('EMERGENCY')?'em':''}">${esc(w)}</div>`).join('')}
+   ${acts?`<div class="acts">${acts}</div>`:''}
+   <div class="acts">${btn}${i.opt?`<span class="note mono">Optimizer (${i.where}) ${i.optMs} ms · ${i.opt.evals} circuit runs${i.warm?' · warm start from memory':''}${i.ttr?` · contained in ${i.ttr.toFixed(1)}s`:''}</span>`:''}</div></div></article>`;
+}
+function spark(){
+  const d=S.pps,W=600,H=110,mx=Math.max(300,...d);const x=i=>(i/(59))*W,y=v=>H-6-(v/mx)*(H-14);
+  if(d.length<2)return '';
+  const pts=d.map((v,i)=>`${x(i+60-d.length).toFixed(1)},${y(v).toFixed(1)}`),last=d.length-1;
+  const lx=x(60-1),ly=y(d[last]);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Packet rate over the last 60 seconds">
+  <line x1="0" x2="${W}" y1="${y(120)}" y2="${y(120)}" stroke="var(--line)" stroke-dasharray="4 4"/><text x="4" y="${y(120)-4}" font-size="10" fill="var(--muted)" font-family="var(--f-mono)">baseline 120 pps</text>
+  <polygon points="${x(60-d.length)},${H-6} ${pts.join(' ')} ${lx},${H-6}" fill="var(--accent)" opacity=".14"/>
+  <polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="${lx-3}" cy="${ly}" r="4" fill="var(--accent)"/></svg>`;
+}
+function rOverview(){
+  const act=S.incidents.filter(i=>i.state!=='contained'),mt=S.stats.mttr,avg=mt.length?(mt.reduce((a,b)=>a+b,0)/mt.length).toFixed(1)+'s':'–';
+  const p=posture(),imm=Math.round(Object.keys(S.mem).length/5*100);
+  const kp=(l,v,s,bar,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div>${bar!=null?`<div class="bar ${c||''}"><i style="width:${bar}%"></i></div>`:''}</div>`;
+  const atk=Object.entries(TYPES).map(([k,t])=>`<button data-act="launch" data-id="${k}" ${S.attacks.some(a=>a.active&&a.type===k)?'disabled':''}><b>${t.name}</b><span>${t.desc}</span></button>`).join('');
+  return `<div class="kpis">
+   ${kp('Network risk',p,p>=70?'Under attack':p>=40?'Elevated':'Normal',p,sevc(p))}
+   ${kp('Active threats',act.length,act.length?act.map(i=>TYPES[i.type].name).join(', '):'None right now')}
+   ${kp('Avg time to contain',avg,mt.length+' incident'+(mt.length===1?'':'s')+' handled')}
+   ${kp('Auto-actions run',S.stats.auto,(S.stats.emerg||0)+' during emergencies')}
+   ${kp('Immunity',imm+'%',Object.keys(S.mem).length+' of 5 attack types learned',imm,'ok')}</div>
+  <div class="grid2"><div class="panel"><h2>Live network map <span class="pill">red lines are active attacks</span></h2><div class="pb" id="topo-slot"></div></div>
+   <div class="panel"><h2>Red team: simulate an attack</h2><div class="pb"><div class="attacks">${atk}<button data-act="multi" style="border-color:var(--crit)"><b>Multi-vector assault</b><span>DDoS, credential stuffing and ransomware at once</span></button></div></div>
+   <h2 style="border-top:1px solid var(--line)">Network activity <span class="pill">metadata only</span></h2><div class="pb">${spark()}</div></div></div>
+  ${act.length?act.slice(0,2).map(incCard).join(''):''}
+  <div class="panel"><h2>Assets and adaptive trust</h2><div class="pb"><div class="assets">${ASSETS.map(a=>`<div class="asset ${a.z>=40?'hot':''} ${a.iso?'iso':''}"><b>${a.name}</b><small>${a.ip} · ${a.zone}</small>
+   <div class="tr"><span>trust ${Math.round(a.trust)}</span><span>${a.iso?'ISOLATED':a.z>=40?'risk '+Math.round(a.z):'ok'}</span></div><div class="bar ${a.trust<50?'crit':a.trust<80?'warn':'ok'}"><i style="width:${a.trust}%"></i></div></div>`).join('')}</div></div></div>
+  <div class="grid2"><div class="panel"><h2>Live traffic</h2><div class="scroll"><table><thead><tr><th>Time</th><th>Source</th><th>Target</th><th>pps</th><th>ports</th><th>KB out</th><th>fails</th><th>Score</th></tr></thead><tbody>
+   ${S.events.slice(0,10).map(e=>`<tr class="${e.an?'an':''}"><td class="m">${e.t}</td><td class="m">${esc(e.src)}</td><td>${A[e.dst].name}</td><td>${Math.round(e.f.pps)}</td><td>${Math.round(e.f.ports)}</td><td>${Math.round(e.f.kb)}</td><td>${e.f.fails.toFixed(1)}</td><td class="m">${e.s.toFixed(1)}</td></tr>`).join('')}</tbody></table></div></div>
+   <div class="panel"><h2>Audit trail</h2><div class="log">${S.log.map(l=>`<div><time>${l.t}</time><span class="${l.kind}">${esc(l.text)}</span></div>`).join('')||'<div class="empty">Nothing logged yet.</div>'}</div></div></div>`;
+}
+function rIncidents(){
+  const iso=ASSETS.filter(a=>a.iso);
+  return `${iso.length?`<div class="panel"><h2>Isolated hosts</h2><div class="pb acts">${iso.map(a=>`<button class="btn sm" data-act="release" data-id="${a.id}">Release ${a.name}</button>`).join('')}</div></div>`:''}
+  ${S.incidents.length?S.incidents.map(incCard).join(''):'<div class="panel"><div class="empty">No incidents yet. Start a simulated attack from the Overview.</div></div>'}`;
+}
+function hist(r){
+  const mx=r.top[0].n;
+  return `<div class="hist">${r.top.map(t=>`<div class="hr ${t.z===r.choice?'best':''} ${t.z===r.opt?'opt':''}"><span>|${bstr(t.z)}⟩</span><div class="b"><i style="width:${t.n/mx*100}%"></i></div><span>${(t.n/r.shots*100).toFixed(1)}%</span></div>`).join('')}</div>`;
+}
+function rLab(){
+  const L=S.lab||{type:'ransom',risk:80,budget:S.policy.budget};
+  const opt=Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${L.type===k?'selected':''}>${t.name}</option>`).join('');
+  const r=S.labR;let out='<div class="panel"><div class="empty">Choose a scenario and run the optimizer.</div></div>';
+  if(r){const nm=z=>bits(z).map(a=>a.name).join(' + ')||'No action';const row=(n,z,c,hl)=>`<tr><td>${n}</td><td>${nm(z)}</td><td class="m ${hl||''}">${c.toFixed(1)}</td></tr>`;
+   out=`<div class="grid2"><div class="panel"><h2>Measured states (${r.shots} shots)</h2><div class="pb">${hist(r)}<p class="note">Green bar is the chosen plan. A green label marks the true best plan found by checking all 64.</p></div></div>
+   <div class="panel"><h2>Plan comparison</h2><div class="scroll"><table class="cmp"><thead><tr><th>Method</th><th>Actions</th><th>Cost</th></tr></thead><tbody>
+   ${row('Do nothing',0,r.none,'bad')}${row('Greedy',r.greedy,r.greedyCost)}${row('QAOA',r.choice,r.cost,r.cost<=r.optCost+.01?'good':'')}${row('Exhaustive best',r.opt,r.optCost,'good')}</tbody></table></div>
+   <div class="pb note">QAOA depth 2 · ${r.evals} circuit runs · best angle set γ=[${r.g.map(x=>x.toFixed(2))}] β=[${r.b.map(x=>x.toFixed(2))}]. Solution quality ${(r.ratio*100).toFixed(1)}%. The best plan carries ${(r.prOpt*100).toFixed(1)}% of the probability.</div></div></div>`}
+  return `<div class="panel"><h2>Quantum response optimizer</h2><div class="pb form">
+   <p class="note" style="margin:0">Each of the six response actions is one qubit. The circuit searches all 64 combinations for the plan that lowers residual risk at the least disruption. It runs here as a statevector simulation, so the same problem can later go to quantum hardware.</p>
+   <div class="row"><label for="l-type">Attack scenario</label><select id="l-type">${opt}</select></div>
+   <div class="row"><label for="l-risk">Risk score <b id="l-riskv" class="mono">${L.risk}</b></label><input type="range" id="l-risk" min="20" max="99" value="${L.risk}"></div>
+   <div class="row"><label for="l-bud">Disruption budget <b id="l-budv" class="mono">${L.budget}</b></label><input type="range" id="l-bud" min="1" max="14" value="${L.budget}"></div>
+   <div class="row"><button class="btn pri" data-act="runlab">Run optimizer</button></div></div></div>${out}`;
+}
+function rPolicy(){
+  const P=S.policy;
+  return `<div class="grid2"><div class="panel"><h2>Autonomy rules</h2><div class="pb form">
+   <div class="row"><div>Auto-act at risk of <b class="mono" id="p-thv">${P.threshold}</b><small>Below this, a person approves first.</small></div><input type="range" id="p-th" min="20" max="95" value="${P.threshold}"></div>
+   <div class="row"><div>Disruption budget <b class="mono" id="p-buv">${P.budget}</b><small>Total business impact the optimizer may spend.</small></div><input type="range" id="p-bu" min="1" max="14" value="${P.budget}"></div>
+   <div class="note">Current mode: <b>${{monitor:'Monitor only',approve:'Ask before acting',auto:'Autonomous within policy'}[P.mode]}</b>. Change it from the top bar.</div></div></div>
+   <div class="panel"><h2>Actions the system may take alone</h2><div class="pb form">
+   ${ACTIONS.map(a=>`<label class="chk"><input type="checkbox" data-pol="${a.id}" ${P.allowed[a.id]?'checked':''}><span><b>${a.name}</b><small class="note" style="display:block">Disruption ${a.cost}/5${a.id==='isolate'?'. Takes a host offline, so it is off by default.':''}</small></span></label>`).join('')}</div></div></div>`;
+}
+function rMemory(){
+  const ks=Object.keys(TYPES),imm=Math.round(Object.keys(S.mem).length/5*100);
+  return `<div class="kpis"><div class="kpi"><div class="l">Cyber immune level</div><div class="v">${imm}%</div><div class="bar ok"><i style="width:${imm}%"></i></div></div>
+  <div class="kpi"><div class="l">Signatures stored</div><div class="v">${Object.keys(S.mem).length}</div><div class="s">of 5 attack families</div></div></div>
+  <div class="panel"><h2>Learned attacks <button class="btn dng sm" data-act="wipe">Forget everything</button></h2><div class="scroll"><table><thead><tr><th>Attack</th><th>Status</th><th>Seen</th><th>Last source</th><th>Best response</th><th>Contained in</th></tr></thead><tbody>
+  ${ks.map(k=>{const m=S.mem[k];return m?`<tr><td>${TYPES[k].name}</td><td><span class="pill ok">immune</span></td><td>${m.count}×</td><td class="m">${esc(m.src)}</td><td>${m.best.map(id=>ACTIONS.find(a=>a.id===id).name).join(', ')||'none'}</td><td class="m">${m.ttr}s</td></tr>`:`<tr><td>${TYPES[k].name}</td><td><span class="pill">not seen</span></td><td colspan="4" class="note">Run this attack from the Overview to teach the system.</td></tr>`}).join('')}</tbody></table></div></div>
+  <div class="panel"><div class="pb note">Once an attack is stored, the detector uses a lower alert threshold for it, the optimizer starts from the saved circuit angles, and the response begins sooner. Memory stays in this browser.</div></div>`;
+}
+function rArch(){
+  const N=[['Telemetry','Flow records only: counts, ports, sizes, login outcomes. No payloads, files or user content are read.'],
+  ['Feature extraction','Per-asset baselines turn raw counts into standardized deviation scores.'],
+  ['AI detection and risk score','Combines deviations with asset criticality into one 0 to 99 score and classifies the attack family.'],
+  ['Quantum optimizer','QAOA picks the response combination with the lowest residual risk for the least disruption.'],
+  ['Policy gate','Autonomy mode, risk threshold, disruption budget and the approved action list decide what runs without a person.'],
+  ['Autonomous response','Block, rate-limit, isolate, revoke sessions, lock backups, redirect to honeypot. Every step is written to the audit trail.'],
+  ['Threat memory and immune system','Contained attacks become signatures that speed up the next detection and response.']];
+  return `<div class="arch">${N.map((n,i)=>`<div class="node ${i===6?'loop':''}"><div class="n">${i+1}</div><div><b>${n[0]}</b><span>${n[1]}</span></div></div>`).join('')}<p class="note">The last stage feeds back into stage 3 and stage 4.</p></div>`;
+}
+const R={overview:rOverview,incidents:rIncidents,lab:rLab,policy:rPolicy,memory:rMemory,arch:rArch};
+function chrome(){
+  const act=S.incidents.filter(i=>i.state!=='contained').length;
+  $('nav').innerHTML=VIEWS.map(v=>`<button data-nav="${v[0]}" ${v[0]===cur?'aria-current="page"':''}><span>${v[1]}</span>${v[0]==='incidents'&&act?`<span class="badge">${act}</span>`:''}</button>`).join('');
+  $('title').textContent=VIEWS.find(v=>v[0]===cur)[1];
+  const p=posture();$('posture').className='pill '+sevc(p);$('posture').innerHTML=`<i></i>${p>=70?'Under attack':p>=40?'Elevated':'Protected'} · risk ${p}`;
+  $('mode').innerHTML=[['monitor','Monitor'],['approve','Ask first'],['auto','Autonomous']].map(m=>`<button data-mode="${m[0]}" aria-pressed="${S.policy.mode===m[0]}">${m[1]}</button>`).join('');
+}
+function show(){VIEWS.forEach(v=>$('v-'+v[0]).classList.toggle('on',v[0]===cur));$('v-'+cur).innerHTML=R[cur]();chrome()}
+const LIVE={overview:1,incidents:1,memory:1};
+function go(v){cur=v;try{history.replaceState(null,'','#'+v)}catch(e){}show()}
+document.addEventListener('click',e=>{
+  const n=e.target.closest('[data-nav]');if(n)return go(n.dataset.nav);
+  const m=e.target.closest('[data-mode]');if(m){S.policy.mode=m.dataset.mode;log('Mode set to '+m.textContent,'acc');return show()}
+  const b=e.target.closest('[data-act]');if(!b)return;const id=b.dataset.id,a=b.dataset.act;
+  if(a==='launch')launch(id);
+  if(a==='approve'){const i=S.incidents.find(x=>x.id==+id);if(i)execute(i,i.pend.slice(),false)}
+  if(a==='release'){A[id].iso=false;log('Released '+A[id].name,'acc')}
+  if(a==='wipe'){S.mem={};saveMem();if(S.user)api('/api/memory','DELETE').catch(()=>{});log('Threat memory cleared','warn')}
+  if(a==='runlab'){S.lab={type:$('l-type').value,risk:+$('l-risk').value,budget:+$('l-bud').value};
+    S.labR=qaoa({type:S.lab.type,risk:S.lab.risk,crit:4,budget:S.lab.budget});}
+  show();
+});
+document.addEventListener('input',e=>{
+  const t=e.target.id;
+  if(t==='l-risk')$('l-riskv').textContent=e.target.value;
+  if(t==='l-bud')$('l-budv').textContent=e.target.value;
+  if(t==='p-th'){S.policy.threshold=+e.target.value;$('p-thv').textContent=e.target.value}
+  if(t==='p-bu'){S.policy.budget=+e.target.value;$('p-buv').textContent=e.target.value}
+});
+document.addEventListener('change',e=>{if(e.target.dataset.pol)S.policy.allowed[e.target.dataset.pol]=e.target.checked?1:0});
+for(let i=0;i<20;i++)normalTraffic(),S.pps.push(Math.round(rnd(95,150)));
+show();
+setInterval(()=>{step();if(LIVE[cur]){const sy=$('content').scrollTop;show();$('content').scrollTop=sy}else chrome()},1000);
+
+/* ===== Topology (persistent SVG, updated in place so animations keep running) ===== */
+const POS={'net':[56,180],'web-01':[180,180],'api-01':[300,100],'auth-01':[300,260],'db-01':[430,60],'file-01':[430,180],'bkp-01':[430,290],'hr-pc':[560,110],'dev-pc':[560,250]};
+const EDGES=[['net','web-01'],['web-01','api-01'],['web-01','auth-01'],['api-01','auth-01'],['api-01','db-01'],['api-01','file-01'],['auth-01','db-01'],['db-01','bkp-01'],['file-01','bkp-01'],['hr-pc','file-01'],['dev-pc','file-01'],['hr-pc','api-01'],['dev-pc','api-01']];
+const ORIGIN={ddos:'net',scan:'net',brute:'net',exfil:'dev-pc',ransom:'hr-pc'};
+const NS_='http://www.w3.org/2000/svg';
+function mk(tag,at,txt){const e=document.createElementNS(NS_,tag);for(const k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;return e}
+const TOPO=(()=>{
+  const svg=mk('svg',{id:'topo',viewBox:'0 0 620 352',role:'img','aria-label':'Network map of assets and active attacks'});
+  [[130,28,'DMZ'],[250,28,'App tier'],[380,28,'Data tier'],[505,28,'Endpoints']].forEach(([x,,l],i)=>{});
+  [['DMZ',130,230],['App',250,350],['Data',375,485],['Endpoints',505,620]].forEach(([l,a,b])=>{svg.appendChild(mk('rect',{class:'zone',x:a-8,y:8,width:Math.max(10,(b-a)-4),height:324,rx:8}));});
+  [['DMZ',150,'Zone'],].forEach(()=>{});
+  svg.appendChild(mk('text',{class:'zl',x:155,y:24},'DMZ'));svg.appendChild(mk('text',{class:'zl',x:300,y:24},'APP'));svg.appendChild(mk('text',{class:'zl',x:430,y:24},'DATA'));svg.appendChild(mk('text',{class:'zl',x:560,y:24},'ENDPOINTS'));
+  EDGES.forEach(([a,b])=>svg.appendChild(mk('line',{class:'edge',x1:POS[a][0],y1:POS[a][1],x2:POS[b][0],y2:POS[b][1]})));
+  const atk={};
+  Object.keys(TYPES).forEach(t=>TYPES[t].targets.forEach(x=>{const o=ORIGIN[t];if(o===x)return;const l=mk('line',{class:'atk',x1:POS[o][0],y1:POS[o][1],x2:POS[x][0],y2:POS[x][1]});svg.appendChild(l);atk[t+':'+x]=l}));
+  const nodes={};
+  svg.appendChild(mk('circle',{cx:POS.net[0],cy:POS.net[1],r:20,class:'nd warn'}));svg.appendChild(mk('text',{x:POS.net[0],y:POS.net[1]+4},'WAN'));svg.appendChild(mk('text',{class:'sub',x:POS.net[0],y:POS.net[1]+36},'Internet'));
+  ASSETS.forEach(a=>{const [x,y]=POS[a.id],g=mk('g',{});
+    const ring=mk('circle',{class:'ring',cx:x,cy:y,r:20}),c=mk('circle',{class:'nd',cx:x,cy:y,r:18}),t=mk('text',{x,y:y+4,style:'font-weight:600'},a.crit+''),n=mk('text',{x,y:y+34},a.name),s=mk('text',{class:'sub',x,y:y+46},'trust');
+    g.append(ring,c,t,n,s);svg.appendChild(g);nodes[a.id]={ring,c,s}});
+  return {svg,atk,nodes};
+})();
+function updTopo(){
+  const act=S.attacks.filter(k=>k.active);
+  for(const key in TOPO.atk){const [t,x]=key.split(':');TOPO.atk[key].classList.toggle('on',act.some(k=>k.type===t&&k.targets.includes(x)&&!(A[x].iso&&S.incidents.some(i=>i.type===t&&i.done.includes('isolate')))))}
+  ASSETS.forEach(a=>{const n=TOPO.nodes[a.id],hot=act.some(k=>k.targets.includes(a.id));
+    n.c.setAttribute('class','nd '+(a.iso?'iso':a.z>=70||hot?'crit':a.z>=30||a.trust<75?'warn':''));
+    n.ring.setAttribute('class','ring'+(hot&&!a.iso?' on':''));n.s.textContent=(a.iso?'isolated':'trust '+Math.round(a.trust))});
+}
+function mountTopo(){const s=$('topo-slot');if(s&&TOPO.svg.parentNode!==s)s.appendChild(TOPO.svg);updTopo()}
+
+/* ===== More views ===== */
+R.integ=function(){
+  const C=[['fw','Firewall / WAF','Blocks IPs, rate-limits, redirects to honeypot'],['edr','Endpoint agent (EDR)','Isolates hosts from the network'],['idp','Identity provider','Revokes sessions and forces MFA'],['bk','Backup vault','Snapshots and locks backups']];
+  return `<div class="panel"><h2>Connected security tools <span class="pill">demo connectors</span></h2><div class="pb">${C.map(c=>`<div class="integ"><div><b>${c[1]}</b><div class="note">${c[2]}. Powers: ${ACTIONS.filter(a=>NEED[a.id]===c[0]).map(a=>a.name).join(', ')}</div></div>
+   <div class="acts"><span class="pill ${S.integ[c[0]]?'ok':'crit'}"><i></i>${S.integ[c[0]]?'Connected':'Offline'}</span><button class="btn sm" data-act="integ" data-id="${c[0]}">${S.integ[c[0]]?'Simulate outage':'Reconnect'}</button></div></div>`).join('')}</div></div>
+  <div class="panel"><div class="pb note">When a tool goes offline, the optimizer treats its actions as unavailable and finds the best plan from what is left. Try an outage, then start an attack. In a real deployment each connector would call the vendor's API.</div></div>`;
+};
+function summary(i){
+  return `QuantumShield incident #${i.id}: ${TYPES[i.type].name}\nSource: ${i.src}\nAssets: ${i.assets.map(x=>A[x].name).join(', ')}\nPeak risk: ${i.risk}\nDecision: ${i.em?'Emergency auto-response':'Policy-based response'}\nActions: ${i.done.map(nm).join(', ')||'none'}\nTime to contain: ${i.ttr?i.ttr.toFixed(1)+'s':'open'}\n\nTimeline\n${i.tl.map(x=>x.t+'  '+x.text).join('\n')}`;
+}
+R.reports=function(){
+  const done=S.user?S.hist:S.incidents.filter(i=>i.state==='contained');
+  if(!done.length)return '<div class="panel"><div class="empty">No finished incidents yet. Contained incidents appear here with a timeline you can copy into a ticket.</div></div>';
+  return done.map(i=>`<article class="inc"><div class="inc-h"><h3>#${i.id} ${TYPES[i.type].name}</h3><span class="pill ${sevc(i.risk)}">peak risk ${i.risk}</span><span class="pill ok">contained in ${i.ttr.toFixed(1)}s</span>${i.em?'<span class="pill crit">emergency</span>':''}<button class="btn sm" data-act="copy" data-id="${i.id}">Copy report</button></div>
+   <div class="inc-b"><div class="note">Assets: ${i.assets.map(x=>A[x].name).join(', ')}. Actions: ${i.done.map(nm).join(', ')||'none'}.</div><div class="tlist">${i.tl.map(x=>`<div><time>${x.t}</time>${esc(x.text)}</div>`).join('')}</div></div></article>`).join('');
+};
+const _pol=R.policy;
+R.policy=function(){
+  const P=S.policy;
+  return _pol().replace(/<div class="note">Current mode/,`<div class="row"><label class="chk" for="p-em"><input type="checkbox" id="p-em" ${P.emergency?'checked':''}><span><b>Emergency auto-response</b><small class="note" style="display:block">Skips human approval and uses every connected action when an attack is severe or spreading. Also steps in if nobody approves within 10 seconds while the attack is still active.</small></span></label></div>
+   <div class="row"><div>Emergency level <b class="mono" id="p-emv">${P.emThr}</b><small>Also triggers when 3 or more assets are hit.</small></div><input type="range" id="p-emt" min="60" max="99" value="${P.emThr}"></div><div class="note">Current mode`);
+};
+const _show=show;
+show=function(){_show();mountTopo();
+  const em=S.emergency&&S.incidents.find(i=>i.em&&i.state!=='contained'),b=$('banner');
+  b.hidden=!em;if(em)b.innerHTML=`<b>EMERGENCY AUTO-RESPONSE ACTIVE</b><span>${S.incidents.filter(i=>i.em&&i.state!=='contained').map(i=>TYPES[i.type].name).join(', ')}. Actions are being taken without waiting for approval.</span>`;
+  const t=$('toasts');while(S.toasts.length){const x=S.toasts.shift(),d=document.createElement('div');d.className='toast '+x.kind;d.textContent=x.text;t.appendChild(d);setTimeout(()=>d.remove(),5500);if(t.children.length>4)t.firstChild.remove()}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  if(a==='multi'){launchMulti();show()}
+  if(a==='integ'){S.integ[id]=S.integ[id]?0:1;log((S.integ[id]?'Reconnected ':'Outage simulated: ')+id,S.integ[id]?'ok':'warn');show()}
+  if(a==='copy'){const i=S.incidents.find(x=>x.id==+id),txt=summary(i);const ok=()=>{b.textContent='Copied'};
+    try{navigator.clipboard.writeText(txt).then(ok,()=>prompt0(txt,b))}catch(er){prompt0(txt,b)}}
+});
+function prompt0(txt,b){const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='width:100%;height:140px;font:12px monospace';b.closest('.inc-b').appendChild(ta);ta.select()}
+document.addEventListener('input',e=>{const t=e.target.id;if(t==='p-emt'){S.policy.emThr=+e.target.value;$('p-emv').textContent=e.target.value}});
+document.addEventListener('change',e=>{if(e.target.id==='p-em')S.policy.emergency=e.target.checked?1:0});
+setInterval(()=>updTopo(),1000);
+
+/* policy autosave */
+document.addEventListener('input',e=>{if(['p-th','p-bu','p-emt'].includes(e.target.id))savePolicy()});
+document.addEventListener('change',e=>{if(e.target.id==='p-em'||e.target.dataset.pol)savePolicy()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-mode]'))savePolicy()});
+
+/* ===== Accounts ===== */
+let amode='in';
+function setAmode(m){amode=m;$('nmrow').hidden=m!=='up';$('asub').textContent=m==='up'?'Create account':'Sign in';
+  $('tab-in').setAttribute('aria-pressed',m==='in');$('tab-up').setAttribute('aria-pressed',m==='up');$('aerr').textContent='';
+  $('pw').autocomplete=m==='up'?'new-password':'current-password'}
+$('tab-in').onclick=()=>setAmode('in');$('tab-up').onclick=()=>setAmode('up');
+function foot(html){document.querySelector('.rail-foot').innerHTML=html}
+function enterApp(d){
+  S.user=d.user;
+  if(d.policy){Object.assign(S.policy,d.policy)}
+  S.mem=d.memory||{};
+  S.hist=(d.incidents||[]).map(r=>({id:r.id,type:r.attack,assets:r.assets,done:r.actions,tl:r.timeline,risk:r.risk,ttr:r.ttr,em:r.emergency}));
+  S.log=(d.audit||[]).map(a=>({t:new Date(a.at).toTimeString().slice(0,8),text:a.text,kind:a.kind}));
+  $('login').hidden=true;
+  foot(`<div class="who">${esc(d.user.name)}<br>${esc(d.user.email)}</div><span class="pill ok"><i></i>Saved to database</span><br><button class="btn sm" data-act="logout" style="margin-top:8px">Sign out</button>`);
+  log('Signed in','acc');show();
+}
+function enterDemo(){
+  S.user=null;loadLocalMem();$('login').hidden=true;
+  foot(`<div class="who">Demo mode</div><span class="pill warn"><i></i>Not saved to a server</span><br><button class="btn sm" data-act="logout" style="margin-top:8px">Leave demo</button>`);
+  log('Demo mode started','acc');show();
+}
+$('demo').onclick=enterDemo;
+$('loginf').addEventListener('submit',async e=>{
+  e.preventDefault();const b=$('asub'),err=$('aerr');err.textContent='';b.disabled=true;
+  try{
+    await api(amode==='up'?'/api/register':'/api/login','POST',{email:$('em').value,password:$('pw').value,name:$('nm').value});
+    enterApp(await api('/api/me'));
+  }catch(er){err.textContent=(er.status===404||er.status===405||er.message==='Failed to fetch'||er.message==='Request failed')?'The server is not reachable here. Use demo mode, or deploy the API.':er.message}
+  b.disabled=false;
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act="logout"]');if(!b)return;
+  (S.user?api('/api/logout','POST',{}):Promise.resolve()).catch(()=>{}).then(()=>location.reload())});
+api('/api/me').then(enterApp).catch(()=>{});
+show();
+
+</script>
+</body>
+</html>
